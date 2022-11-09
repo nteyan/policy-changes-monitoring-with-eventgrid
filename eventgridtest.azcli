@@ -1,0 +1,26 @@
+az group delete --name EventGrid
+
+az provider register --namespace Microsoft.PolicyInsights
+
+az provider register --namespace Microsoft.EventGrid
+
+az group create --name EventGrid --location westeurope
+
+az eventgrid system-topic create --name PolicyStateChanges --location global --topic-type Microsoft.PolicyInsights.PolicyStates --source "/subscriptions/<SubID>" --resource-group "EventGrid"
+
+az deployment group create \
+  --resource-group EventGrid \
+  --template-uri "https://raw.githubusercontent.com/Azure-Samples/azure-event-grid-viewer/master/azuredeploy.json" \
+  --parameters siteName=<SiteName> hostingPlanName=viewerhost
+
+az eventgrid system-topic event-subscription create \
+  --name 'Visual Studio Enterprise' \
+  --resource-group EventGrid \
+  --system-topic-name PolicyStateChanges \
+  --endpoint https://<SiteName>.azurewebsites.net/api/updates
+
+# az policy definition list --query "[?displayName=='Require a tag on resource groups']"
+
+az policy assignment create --name 'requiredtags-events' --display-name 'Require tag on RG' --scope '/subscriptions/<SubID>' --policy '96670d01-0a4d-4649-9c89-2d3abc0a5025' --params "{ \"tagName\": { \"value\": \"EventTest\" } }"
+
+az tag create --resource-id '/subscriptions/<SubID>/resourceGroups/EventGrid' --tags EventTest=true
